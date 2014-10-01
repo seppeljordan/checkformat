@@ -1,0 +1,4 @@
+# -*- mode: org -*-
+* Introduction
+This package is about checking source files for certain criteria,
+e.g. length of lines, trailing whitespaces etc.

@@ -3,7 +3,7 @@
 -- |This program checks the length of lines and trailing whitespaces
 -- in a file.
 
-module CheckFormat
+module SourceCheck.CheckFormat
 
 where
 

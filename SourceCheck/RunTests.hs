@@ -1,6 +1,6 @@
 #!/usr/bin/runhaskell
 
-module RunTests
+module SourceCheck.RunTests
 
 where
 
