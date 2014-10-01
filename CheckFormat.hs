@@ -1,7 +1,7 @@
 #!/usr/bin/runhaskell
 
--- This program checks the length of lines and trailing whitespaces in
--- a file.
+-- |This program checks the length of lines and trailing whitespaces
+-- in a file.
 
 module CheckFormat
 
@@ -11,6 +11,11 @@ import Data.Char
 import System.IO
 import System.Environment
 import System.Exit
+import Data.Maybe
+
+
+type LineNumber = Integer
+data CheckError = LineTooLong | TrailingWhitespaces
 
 lengthOk :: String -> Bool
 lengthOk s =
@@ -23,38 +28,68 @@ whitespaceOk s =
     then (not . isSpace . last) s
     else True
 
+putIndentLn s = putStrLn ("\t"++s)
 
-putResult :: (Int, Bool, Bool) -> IO ()
-putResult (lineNo, len, whitesp) =
-    let putIf cond string =
-            if cond
-            then putStrLn $ "\tLine "++(show lineNo)++": "++string
-            else return ()
-    in putIf (not len) "Line too long" >>
-       putIf (not whitesp) "Trailing whitespace"
+
+renderCheckError lineNo LineTooLong =
+    putIndentLn $ show lineNo ++": Line too long"
+renderCheckError lineNo TrailingWhitespaces =
+    putIndentLn $ show lineNo ++": Trailing whitespaces"
+
+
+putResult :: LineNumber -> [CheckError] -> IO ()
+putResult lineNo errs =
+    (sequence_.map (renderCheckError lineNo)) errs
 
 checkText :: [String] -> IO Bool
 checkText strings =
-    let wsLines = fmap whitespaceOk strings
-        lLines = fmap lengthOk strings
-        allOk = and $ wsLines ++ lLines
-    in (sequence_ . (fmap putResult)) (zip3 [1..] lLines wsLines) >>
-       return allOk
+    let results = map checkLine strings
+        resultsOk = all null results
+    in sequence_ ( zipWith putResult [1..] results) >> return resultsOk
+
+checkLine :: String -> [CheckError]
+checkLine str =
+    foldl prependJust [] [ checkLength
+                         , checkWhitespaces
+                         ]
+    where prependJust list mfun | isJust mval = (fromJust mval):list
+                                | otherwise = list
+                                where mval = mfun str
+
+
+checkLength :: [a] -> Maybe CheckError
+checkLength str | length str < 80 = Nothing
+                | otherwise = Just LineTooLong
+
+checkWhitespaces :: String -> Maybe CheckError
+checkWhitespaces str | whitespaceOk str = Nothing
+                     | otherwise = Just TrailingWhitespaces
+
+
+checkFiles filenames =
+    (fmap (all id).sequence.map checkFile) filenames
 
 
 checkFile :: FilePath -> IO Bool
-checkFile fn =
-    fmap lines (readFile fn) >>=
-    checkText
+checkFile filename =
+    putStrLn ("Checking file \'"++filename++"\'...") >>
+    fmap lines (readFile filename) >>=
+    checkText >>= \result ->
+    renderResult filename result >>
+    return result
 
-exit :: String -> Bool -> IO a
-exit fn b =
+
+renderResult filename False = putStrLn ("...false formatting ("++filename++")")
+renderResult filename True = putStrLn ("...Ok ("++filename++")")
+
+
+exit :: Bool -> IO a
+exit b =
     if b
-    then putStrLn ("...Ok ("++fn++")") >> exitSuccess
-    else putStrLn ("...false formatting ("++fn++")") >> exitFailure
+    then exitSuccess
+    else exitFailure
 
 main =
-    fmap head getArgs >>= \filename ->
-    putStrLn ("Checking file \'"++filename++"\'...") >>
-    checkFile filename >>=
-    exit filename
+    fmap getArgs >>= \filenames ->
+    checkFiles filenames >>=
+    exit

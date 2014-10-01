@@ -12,7 +12,7 @@ import System.Exit
 runTestCmd :: [String] -> IO Bool
 runTestCmd [] = error "Specify a command to run"
 runTestCmd (cmd:args) =
-    let evalReturn code =     
+    let evalReturn code =
             if (code == ExitSuccess)
             then True
             else False
