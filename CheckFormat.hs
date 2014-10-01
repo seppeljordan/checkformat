@@ -8,7 +8,6 @@ module CheckFormat
 where
 
 import Data.Char
-import System.IO
 import System.Environment
 import System.Exit
 import Data.Maybe
@@ -28,9 +27,12 @@ whitespaceOk s =
     then (not . isSpace . last) s
     else True
 
+
+putIndentLn :: String -> IO ()
 putIndentLn s = putStrLn ("\t"++s)
 
 
+renderCheckError :: (Show a) => a -> CheckError -> IO ()
 renderCheckError lineNo LineTooLong =
     putIndentLn $ show lineNo ++": Line too long"
 renderCheckError lineNo TrailingWhitespaces =
@@ -39,7 +41,7 @@ renderCheckError lineNo TrailingWhitespaces =
 
 putResult :: LineNumber -> [CheckError] -> IO ()
 putResult lineNo errs =
-    (sequence_.map (renderCheckError lineNo)) errs
+    (mapM_ (renderCheckError lineNo)) errs
 
 checkText :: [String] -> IO Bool
 checkText strings =
@@ -66,8 +68,9 @@ checkWhitespaces str | whitespaceOk str = Nothing
                      | otherwise = Just TrailingWhitespaces
 
 
+checkFiles :: [FilePath] -> IO Bool
 checkFiles filenames =
-    (fmap (all id).sequence.map checkFile) filenames
+    (fmap (all id).mapM checkFile) filenames
 
 
 checkFile :: FilePath -> IO Bool
@@ -79,6 +82,7 @@ checkFile filename =
     return result
 
 
+renderResult :: FilePath -> Bool -> IO ()
 renderResult filename False = putStrLn ("...false formatting ("++filename++")")
 renderResult filename True = putStrLn ("...Ok ("++filename++")")
 
@@ -89,7 +93,9 @@ exit b =
     then exitSuccess
     else exitFailure
 
+
+main :: IO a
 main =
-    fmap getArgs >>= \filenames ->
+    getArgs >>= \filenames ->
     checkFiles filenames >>=
     exit
